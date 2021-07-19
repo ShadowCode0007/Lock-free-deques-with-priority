@@ -67,5 +67,5 @@ make clean
 1. [The Art of Multiprocessor Programming.  Maurice Herlihy, Nir Shavit / Morgan Kaufmann](https://www.elsevier.com/books/the-art-of-multiprocessor-programming/herlihy/978-0-12-415950-1)
 2. [Dynamic Circular Work-Stealing Deque. David Chase, Yossi Lev / Sun Microsystems](https://dl.acm.org/doi/10.1145/1073970.1073974)
 3. [laysakura's blog](http://d.hatena.ne.jp/laysakura)
-4. [[http://www.google-melange.com/gsoc/proposal/review/google/gsoc2011/laysakura/1][laysakura's project in Google Summer of Code 2011]]
+4. [laysakura's project in Google Summer of Code 2011](http://www.google-melange.com/gsoc/proposal/review/google/gsoc2011/laysakura/1)
 5. [laysakura's twitter](http://twitter.com/laysakura)
