@@ -2,24 +2,24 @@
 
 - There are a number of tasks
 - Tasks are the same number of task queues as CPUs
-- A `worker' has a task queue
+- A `worker` has a task queue
 - A worker pops/pushes tasks from its own task queue
 - A worker takes tasks from other workers
-- `Pop'/`push' accesses the bottom of task queues
-- `Take ' accesses the top of task queues
+- `Pop`/`push` accesses the bottom of task queues
+- `Take` accesses the top of task queues
 
 # Features
 
-- Task queue is implemented as `unbound circular array',
+- Task queue is implemented as `unbound circular array`
     which doesn't have start and end points and expands when the size
     is less than the number of tasks.
     
 - There are already some implementation of Lock-free Work-stealing Deque.
     But one written in C is not so common.
-    Unlike some languages like Java, the support of `volatile' variable is
+    Unlike some languages like Java, the support of `volatile` variable is
     limited in C. This implementation covers it by using memory barriers.
     
-- This uses compare-and-swap (CAS) instruction instead of mutex lock.
+- This uses `compare-and-swap (CAS) instruction` instead of `mutex lock`.
 
 # Compile
 
