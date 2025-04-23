@@ -3,6 +3,8 @@
 #include <string.h>
 #include <assert.h>
 
+// Single queue management
+
 gsoc_taskqueue* gsoc_taskqueue_new()
 {
   gsoc_taskqueue* this;
@@ -16,6 +18,7 @@ gsoc_taskqueue* gsoc_taskqueue_new()
 
   return this;
 }
+
 void gsoc_taskqueue_delete(gsoc_taskqueue* this)
 {
   gsoc_task_circular_array_delete(this->_taskqueue);
@@ -28,15 +31,13 @@ void gsoc_taskqueue_push(gsoc_taskqueue* this, gsoc_task* task)
   size_t num_tasks = this->_bottom - old_top;
   gsoc_task_circular_array* old_taskqueue = this->_taskqueue;
 
-  if (__builtin_expect(num_tasks >= gsoc_task_circular_array_size(this->_taskqueue) - 1, 0))
-    {
-      /* _taskqueue needs to be expanded */
-      this->_taskqueue = gsoc_task_circular_array_get_double_sized_copy(old_taskqueue);
-      gsoc_task_circular_array_delete(old_taskqueue);
-    }
+  if (__builtin_expect(num_tasks >= gsoc_task_circular_array_size(this->_taskqueue) - 1, 0)) {
+    this->_taskqueue = gsoc_task_circular_array_get_double_sized_copy(old_taskqueue);
+    gsoc_task_circular_array_delete(old_taskqueue);
+  }
   gsoc_task_circular_array_set(this->_taskqueue, this->_bottom, task);
   ++this->_bottom;
-  __sync_synchronize(); /* new _bottom must be visible from take() called by another worker */
+  __sync_synchronize();
 }
 
 gsoc_task* gsoc_taskqueue_pop(gsoc_taskqueue* this)
@@ -45,38 +46,27 @@ gsoc_task* gsoc_taskqueue_pop(gsoc_taskqueue* this)
   size_t num_tasks;
 
   --this->_bottom;
-  __sync_synchronize(); /* New _bottom must be visible from take() called by another worker.
-                           Also, _top can be incremented by another worker. */
+  __sync_synchronize();
   old_top = this->_top;
   new_top = old_top + 1;
-  num_tasks = this->_bottom - old_top; /* Note that num_tasks is less than real number of tasks by 1
-                                          since _bottom is decremented. */
-  if (__builtin_expect(num_tasks < 0, 0))
-    {
-      /* There is no task to pop. */
-      this->_bottom = old_top;
+  num_tasks = this->_bottom - old_top;
+
+  if (__builtin_expect(num_tasks < 0, 0)) {
+    this->_bottom = old_top;
+    return NULL;
+  } else if (__builtin_expect(num_tasks == 0, 0)) {
+    gsoc_task* ret = gsoc_task_circular_array_get(this->_taskqueue, this->_bottom);
+    __sync_synchronize();
+    if (!__sync_bool_compare_and_swap(&this->_top, old_top, new_top))
       return NULL;
+    else {
+      this->_bottom = new_top;
+      __sync_synchronize();
+      return ret;
     }
-  else if (__builtin_expect(num_tasks == 0, 0))
-    {
-      /* Both pop() and take() might be trying to get an only task in _taskqueue. */
-
-      gsoc_task* ret = gsoc_task_circular_array_get(this->_taskqueue, this->_bottom);
-
-      __sync_synchronize();  /* _top can be incremented by another worker. */
-      if (!__sync_bool_compare_and_swap(&this->_top, old_top, new_top))
-        /* take() already took the task */
-        return NULL;
-      else
-        {
-          this->_bottom = new_top;  /* Tell take() _taskqueue is empty */
-          __sync_synchronize(); /* _bottom must be visible from take() */
-          return ret;
-        }
-    }
-  else
-    /* There are some number of tasks safely popped */
+  } else {
     return gsoc_task_circular_array_get(this->_taskqueue, this->_bottom);
+  }
 }
 
 gsoc_task* gsoc_taskqueue_take(gsoc_taskqueue* this)
@@ -85,7 +75,7 @@ gsoc_task* gsoc_taskqueue_take(gsoc_taskqueue* this)
   size_t old_bottom;
   size_t num_tasks;
 
-  __sync_synchronize();  /* _top and _bottom can be changed by pop/push */
+  __sync_synchronize();
   old_top = this->_top;
   old_bottom = this->_bottom;
   new_top = old_top + 1;
@@ -94,10 +84,48 @@ gsoc_task* gsoc_taskqueue_take(gsoc_taskqueue* this)
   if (__builtin_expect(num_tasks <= 0, 0))
     return NULL;
 
-  __sync_synchronize();  /* _top can be incremented by pop. */
+  __sync_synchronize();
   if (!__sync_bool_compare_and_swap(&this->_top, old_top, new_top))
-    /* pop() already took the task */
     return NULL;
   else
     return gsoc_task_circular_array_get(this->_taskqueue, old_top);
 }
+
+// Taskqueue set: 3-priority deques per processor
+
+gsoc_taskqueue_set* gsoc_taskqueue_set_new() {
+  gsoc_taskqueue_set* set = malloc(sizeof(gsoc_taskqueue_set));
+  assert(set);
+  for (int i = 0; i < PRIORITY_LEVELS; i++) {
+    set->queues[i] = gsoc_taskqueue_new();
+  }
+  return set;
+}
+
+void gsoc_taskqueue_set_delete(gsoc_taskqueue_set* set) {
+  for (int i = 0; i < PRIORITY_LEVELS; i++) {
+    gsoc_taskqueue_delete(set->queues[i]);
+  }
+  free(set);
+}
+
+void gsoc_taskqueue_set_push(gsoc_taskqueue_set* set, gsoc_task* task, int priority) {
+  assert(priority >= 0 && priority < PRIORITY_LEVELS);
+  gsoc_taskqueue_push(set->queues[priority], task);
+}
+
+gsoc_task* gsoc_taskqueue_set_pop(gsoc_taskqueue_set* set, int priority) {
+  assert(priority >= 0 && priority < PRIORITY_LEVELS);
+  return gsoc_taskqueue_pop(set->queues[priority]);
+}
+
+// Steal the best available task by trying from high to low priority
+
+gsoc_task* gsoc_taskqueue_set_steal_best(gsoc_taskqueue_set* victim_set) {
+  for (int i = 0; i < PRIORITY_LEVELS; ++i) {
+    gsoc_task* task = gsoc_taskqueue_take(victim_set->queues[i]);
+    if (task != NULL) return task;
+  }
+  return NULL;
+}
+

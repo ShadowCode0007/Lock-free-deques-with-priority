@@ -10,7 +10,6 @@
 #include <utmpx.h>
 #include <unistd.h>
 
-
 #ifndef TESTVAL_EXTENDS  /* It may be defined by Makefile */
 #define TESTVAL_EXTENDS 1
 #endif
@@ -18,126 +17,152 @@
 typedef struct _worker {
   int id;
   cpu_set_t cpu;
-  gsoc_taskqueue* my_taskq;
+  gsoc_taskqueue* taskqs[3]; // Priority 0 (High), 1 (Medium), 2 (Low)
   gsoc_task* tasks;
   struct _worker* workers;
   long num_workers;
   int logged_worker;
 } worker;
 
-
 void* parallel_push_pop_take(void* s)
 {
   worker* data = (worker*)s;
-  gsoc_task* task;
-  size_t victim;
-  int i;
   pthread_setaffinity_np(pthread_self(), sizeof(data->cpu), &data->cpu);
 
-  /* Think about fib where two tasks are created by one task */
-  for (i = 0; i < GSOC_TASKQUEUE_INIT_SIZE * TESTVAL_EXTENDS / 2; ++i) {
-    gsoc_taskqueue_push(data->my_taskq, &data->tasks[2*i]);
-    gsoc_taskqueue_push(data->my_taskq, &data->tasks[2*i + 1]);
-    task = gsoc_taskqueue_pop(data->my_taskq);
-    if (task && data->id == data->logged_worker)
-      printf("%lld is popped by CPU%d\n", task->test_id, sched_getcpu()); /* These values are evaluated by `make test' script */
+  for (int i = 0; i < GSOC_TASKQUEUE_INIT_SIZE * TESTVAL_EXTENDS / 2; ++i) {
+    int priority = i % 3;
+    gsoc_taskqueue_push(data->taskqs[priority], &data->tasks[2 * i]);
+    gsoc_taskqueue_push(data->taskqs[priority], &data->tasks[2 * i + 1]);
+
+    for (int p = 0; p < 3; ++p) {
+      gsoc_task* task = gsoc_taskqueue_pop(data->taskqs[p]);
+      if (task && data->id == data->logged_worker)
+        printf("%lld is popped by CPU%d (priority %d)\n", task->test_id, sched_getcpu(), p);
+      if (task) break;
+    }
   }
 
-  /* All tasks are created, now just consume then (with other worker queue).
-     If no task is in the queue, steal from others. */
   while (1) {
-    task = gsoc_taskqueue_pop(data->my_taskq);
-    if (task && data->id == data->logged_worker)
-      printf("%lld is popped by CPU%d\n", task->test_id, sched_getcpu()); /* These values are evaluated by `make test' script */
-    if (!task)
-      {
-        do
-          {
-            victim = random() % data->num_workers;
-          }
-        while (victim == data->id);
-        task = gsoc_taskqueue_take(data->workers[victim].my_taskq);
-        if (task && victim == data->logged_worker)
-          printf("%lld is taken by CPU%d from CPU%d\n", task->test_id, sched_getcpu(), (int)victim); /* These values are evaluated by `make test' script */
-        else
-          return NULL;
+    gsoc_task* task = NULL;
 
+    for (int p = 0; p < 3; ++p) {
+      task = gsoc_taskqueue_pop(data->taskqs[p]);
+      if (task && data->id == data->logged_worker)
+        printf("%lld is popped by CPU%d (priority %d)\n", task->test_id, sched_getcpu(), p);
+      if (task) break;
+    }
+
+    if (!task) {
+      size_t victim;
+      do {
+        victim = random() % data->num_workers;
+      } while (victim == data->id);
+
+      for (int p = 0; p < 3; ++p) {
+        task = gsoc_taskqueue_take(data->workers[victim].taskqs[p]);
+        if (task) {
+          if (data->id == data->logged_worker)
+            printf("%lld is taken by CPU%d from CPU%ld (priority %d)\n",
+                   task->test_id, sched_getcpu(), victim, p);
+          break;
+        }
       }
+
+      if (!task) return NULL;
+    }
   }
 }
 
 int main()
 {
   int i;
+  long num_tasks = GSOC_TASKQUEUE_INIT_SIZE * 100;
+  gsoc_task *tasks = malloc(sizeof(gsoc_task) * num_tasks);
 
-  /* for sequential use */
-  gsoc_taskqueue* q;
-  gsoc_task *tasks;
+  for (i = 0; i < num_tasks; ++i)
+    tasks[i].test_id = i;
 
-  /* for parallel use */
+  // === SINGLE-THREADED PRIORITY TEST ===
+  gsoc_taskqueue* qs[3];
+  for (int p = 0; p < 3; ++p)
+    qs[p] = gsoc_taskqueue_new();
+
+  // Push based on priority
+  for (i = 0; i < num_tasks; ++i) {
+    int priority = i % 3;
+    gsoc_taskqueue_push(qs[priority], &tasks[i]);
+  }
+
+  printf("After all pushes:\n");
+  for (int p = 0; p < 3; ++p) {
+    printf("  priority %d: q->_top = %zu, q->_bottom = %zu, q->_taskqueue->_size = %llu\n",
+           p, qs[p]->_top, qs[p]->_bottom, qs[p]->_taskqueue->_size);
+  }
+
+  // Pop in reverse order based on priority
+  for (i = num_tasks - 1; i >= 0; --i) {
+    int priority = i % 3;
+    gsoc_task* task = gsoc_taskqueue_pop(qs[priority]);
+    assert(task && task->test_id == i);
+  }
+
+  for (int p = 0; p < 3; ++p)
+    assert(gsoc_taskqueue_pop(qs[p]) == NULL);
+
+  // Push again for take
+  for (i = 0; i < num_tasks; ++i) {
+    int priority = i % 3;
+    gsoc_taskqueue_push(qs[priority], &tasks[i]);
+  }
+
+  for (i = 0; i < num_tasks; ++i) {
+    int priority = i % 3;
+    gsoc_task* task = gsoc_taskqueue_take(qs[priority]);
+    assert(task && task->test_id == i);
+  }
+
+  for (int p = 0; p < 3; ++p)
+    assert(gsoc_taskqueue_take(qs[p]) == NULL);
+
+  for (int p = 0; p < 3; ++p)
+    gsoc_taskqueue_delete(qs[p]);
+
+  // === MULTITHREADED PARALLEL TEST ===
   long num_cpu = sysconf(_SC_NPROCESSORS_CONF);
-  gsoc_taskqueue *taskqs[num_cpu];
   cpu_set_t cpuset;
   pthread_t tids[num_cpu];
   worker workers[num_cpu];
   int logged_worker = random() % num_cpu;
-  double t1, t2;
 
-  /* initializations for test */
-  tasks = malloc(sizeof(gsoc_task) * GSOC_TASKQUEUE_INIT_SIZE * 100);
-  for (i = 0; i < GSOC_TASKQUEUE_INIT_SIZE * 100; ++i)
-    tasks[i].test_id = i;
-  q = gsoc_taskqueue_new();
-  for (i = 0; i < num_cpu; ++i)
-    taskqs[i] = gsoc_taskqueue_new();
-
-  /* push+pop */
-  for (i = 0; i < GSOC_TASKQUEUE_INIT_SIZE * 100; ++i)
-    gsoc_taskqueue_push(q, &tasks[i]);
-  for (i = GSOC_TASKQUEUE_INIT_SIZE * 100 - 1; i >= 0 ; --i)
-    assert(gsoc_taskqueue_pop(q)->test_id == i);
-  /* pop for empty deque */
-  assert(gsoc_taskqueue_pop(q) == NULL);
-
-  /* push+take */
-  for (i = 0; i < GSOC_TASKQUEUE_INIT_SIZE * 100; ++i)
-    gsoc_taskqueue_push(q, &tasks[i]);
-  for (i = 0; i < GSOC_TASKQUEUE_INIT_SIZE * 100; ++i)
-    assert(gsoc_taskqueue_take(q)->test_id == i);
-  /* take for empty deque */
-  assert(gsoc_taskqueue_take(q) == NULL);
-
-
-  /* Emulate workers */
   fprintf(stderr, "==========\nWith %d CPUs\n===========\n", (int)num_cpu);
 
-  t1 = gettimeofday_sec();
-
+  double t1 = gettimeofday_sec();
   for (i = 0; i < num_cpu; ++i) {
     CPU_ZERO(&cpuset);
     CPU_SET(i, &cpuset);
     workers[i].cpu = cpuset;
     workers[i].id = i;
-    workers[i].my_taskq = taskqs[i];
     workers[i].tasks = tasks;
     workers[i].workers = workers;
     workers[i].num_workers = num_cpu;
     workers[i].logged_worker = logged_worker;
 
+    for (int p = 0; p < 3; ++p)
+      workers[i].taskqs[p] = gsoc_taskqueue_new();
+
     pthread_create(&tids[i], NULL, parallel_push_pop_take, &workers[i]);
   }
+
   for (i = 0; i < num_cpu; ++i)
     pthread_join(tids[i], NULL);
 
-  t2 = gettimeofday_sec();
+  double t2 = gettimeofday_sec();
+  fprintf(stderr, "%f sec elapsed for parallel_push_pop_take()\n", t2 - t1);
 
-  fprintf(stderr, "%f sec elaplsed for parallel_push_pop_take()\n", t2-t1);
-
-  /* finalization for test */
   for (i = 0; i < num_cpu; ++i)
-    gsoc_taskqueue_delete(taskqs[i]);
-  gsoc_taskqueue_delete(q);
-  free(tasks);
+    for (int p = 0; p < 3; ++p)
+      gsoc_taskqueue_delete(workers[i].taskqs[p]);
 
+  free(tasks);
   return 0;
 }
