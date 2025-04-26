@@ -25,23 +25,22 @@ typedef struct _gsoc_taskqueue_set {
 
 // Constructor/destructor for individual queues
 gsoc_taskqueue* gsoc_taskqueue_new();
-void gsoc_taskqueue_delete(gsoc_taskqueue* this);
 
 // Task operations on a single queue
-void gsoc_taskqueue_push(gsoc_taskqueue* this, gsoc_task* task);
-gsoc_task* gsoc_taskqueue_pop(gsoc_taskqueue* this);
-gsoc_task* gsoc_taskqueue_take(gsoc_taskqueue* this);
+void gsoc_taskqueue_push(gsoc_taskqueue* this, gsoc_task task);
+gsoc_task gsoc_taskqueue_pop(gsoc_taskqueue* this);
+gsoc_task gsoc_taskqueue_take(gsoc_taskqueue* this);
 
 // Constructor/destructor for the 3-deque structure
 gsoc_taskqueue_set* gsoc_taskqueue_set_new();
 void gsoc_taskqueue_set_delete(gsoc_taskqueue_set* set);
 
 // Push/pop by priority
-void gsoc_taskqueue_set_push(gsoc_taskqueue_set* set, gsoc_task* task, int priority);
-gsoc_task* gsoc_taskqueue_set_pop(gsoc_taskqueue_set* set, int priority);
+void gsoc_taskqueue_set_push(gsoc_taskqueue_set* set, gsoc_task task, int priority);
+gsoc_task gsoc_taskqueue_set_pop(gsoc_taskqueue_set* set, int priority);
 
 // Stealing strategy to pick best task among priorities
-gsoc_task* gsoc_taskqueue_set_steal_best(gsoc_taskqueue_set* victim_set);
+gsoc_task gsoc_taskqueue_set_steal_best(gsoc_taskqueue_set* victim_set, int priority_level);
 
 #endif /* _GSOC_TASKQUEUE_H_ */
 

@@ -9,13 +9,8 @@ typedef enum {
 } task_priority_t;
 
 typedef struct gsoc_task {
-  void* result;
-
-  struct gsoc_task* parent;
-  struct gsoc_task** children;
-
   task_priority_t priority;  
-
+  int task_durartion;
 #ifdef TEST_USE_TASK_ID
   unsigned long long test_id;
 #endif

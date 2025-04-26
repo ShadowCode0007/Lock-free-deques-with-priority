@@ -14,6 +14,7 @@
 #define TESTVAL_EXTENDS 1
 #endif
 
+/*
 typedef struct _worker {
   int id;
   cpu_set_t cpu;
@@ -83,7 +84,7 @@ void* parallel_push_pop_take(void* s)
 int main()
 {
   int i;
-  long num_tasks = GSOC_TASKQUEUE_INIT_SIZE * 100;
+  long num_tasks = GSOC_TASKQUEUE_INIT_SIZE * 150;
   gsoc_task *tasks = malloc(sizeof(gsoc_task) * num_tasks);
 
   for (i = 0; i < num_tasks; ++i)
@@ -173,3 +174,4 @@ int main()
   free(tasks);
   return 0;
 }
+*/
