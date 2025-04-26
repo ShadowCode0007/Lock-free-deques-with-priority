@@ -28,6 +28,8 @@ void* parallel_push_pop_take(void* s)
 {
   worker* data = (worker*)s;
   pthread_setaffinity_np(pthread_self(), sizeof(data->cpu), &data->cpu);
+  pthread_t tid = pthread_self();
+  printf("Creating %d tasks in pthread ID: %lu\n", (GSOC_TASKQUEUE_INIT_SIZE * TESTVAL_EXTENDS), (unsigned long)tid);
 
   for (int i = 0; i < GSOC_TASKQUEUE_INIT_SIZE * TESTVAL_EXTENDS / 2; ++i) {
     int priority = i % 3;
@@ -36,20 +38,25 @@ void* parallel_push_pop_take(void* s)
 
     for (int p = 0; p < 3; ++p) {
       gsoc_task* task = gsoc_taskqueue_pop(data->taskqs[p]);
-      if (task && data->id == data->logged_worker)
-        printf("%lld is popped by CPU%d (priority %d)\n", task->test_id, sched_getcpu(), p);
-      if (task) break;
+      if (task) {//&& data->id == data->logged_worker)
+        printf("%lld is popped by thread %lu CPU%d (priority %d)\n", task->test_id, (unsigned long)tid, sched_getcpu(), p);
+        break;
+      }
     }
   }
 
+  printf("Actual test starts now ------------------------------------\n");
+  printf("Current pthread ID: %lu\n", (unsigned long)tid);
+  
   while (1) {
     gsoc_task* task = NULL;
 
     for (int p = 0; p < 3; ++p) {
       task = gsoc_taskqueue_pop(data->taskqs[p]);
-      if (task && data->id == data->logged_worker)
+      if (task) {// data->id == data->logged_worker)
         printf("%lld is popped by CPU%d (priority %d)\n", task->test_id, sched_getcpu(), p);
-      if (task) break;
+        break;
+      }
     }
 
     if (!task) {
@@ -61,7 +68,7 @@ void* parallel_push_pop_take(void* s)
       for (int p = 0; p < 3; ++p) {
         task = gsoc_taskqueue_take(data->workers[victim].taskqs[p]);
         if (task) {
-          if (data->id == data->logged_worker)
+          //if (data->id == data->logged_worker)
             printf("%lld is taken by CPU%d from CPU%ld (priority %d)\n",
                    task->test_id, sched_getcpu(), victim, p);
           break;
