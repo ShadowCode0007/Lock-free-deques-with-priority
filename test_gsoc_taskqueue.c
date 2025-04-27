@@ -38,16 +38,34 @@ void *parallel_push_pop_take(void *s)
   pthread_setaffinity_np(pthread_self(), sizeof(data->cpu), &data->cpu);
   printf("~~~~~ Creating %d tasks in CPU%d ~~~~~\n", num_of_tasks, sched_getcpu());
 
-  for (int i = 0; i < num_of_tasks; ++i)
-  {
-    int priority = i % 3;
-    gsoc_task task;
-    task.priority = priority;
-    task.task_duration = 50 + (rand() % 50);
-    task.test_id = i;
+  // for (int i = 0; i < num_of_tasks; ++i)
+  // {
+  //   int priority = i % 3;
+  //   gsoc_task task;
+  //   task.priority = priority;
+  //   task.task_duration = 50 + (rand() % 250);
+  //   // task.task_duration = 0;
+  //   task.test_id = data->id + i;
 
-    printf("(CPU%d) Creating task %lld with priority %u\n", sched_getcpu(), task.test_id, task.priority);
-    gsoc_taskqueue_set_push(data->taskqs, task);
+  //   printf("(CPU%d) Creating task %lld with priority %u\n", sched_getcpu(), task.test_id, task.priority);
+  //   gsoc_taskqueue_set_push(data->taskqs, task);
+  // }
+
+  for (int i = 0; i < data->num_workers; i++)
+  {
+    printf("Size of worker %d and top is %lu bottom is %lu\n", i, data->workers[i].taskqs->queues->_top, data->workers[i].taskqs->queues->_bottom);
+
+    for (int j = 0; j < PRIORITY_LEVELS; j++)
+    {
+      int start = data->workers[i].taskqs->queues->_top;
+      int end = data->workers[i].taskqs->queues->_bottom;
+      //printf("CPU%d: %d tasks in priority %d\n", i, end - start, j);
+      for (int k = start; k < end; k++)
+      {
+        gsoc_task task = data->workers[i].taskqs->queues[j]._array[k % 30];
+        printf("CPU%d: Task %lld with priority %d\n", i, task.test_id, task.priority);
+      }
+    }
   }
 
   // printf("Actual test starts now ------------------------------------\n");
@@ -60,13 +78,13 @@ void *parallel_push_pop_take(void *s)
     gsoc_task task;
 
     if (current_priority > 2)
-      return NULL;
+      break;
 
     task = gsoc_taskqueue_set_pop(data->taskqs, current_priority);
 
-    if (task.priority == -1 && current_priority == 2) {
-      break;
-    }
+    // if (task.priority == -1 && current_priority == 2) {
+    //   break;
+    // }
 
     if (task.priority == current_priority)
     {
@@ -81,6 +99,8 @@ void *parallel_push_pop_take(void *s)
 
       for (int i = 0; i < data->num_workers; i++)
       {
+        if (i == data->id)
+          continue;
         task = gsoc_taskqueue_set_steal_best(data->workers[i].taskqs, current_priority);
         if (task.priority != -1)
         {
@@ -89,7 +109,12 @@ void *parallel_push_pop_take(void *s)
           execute_task(task);
           break;
         }
-      }
+
+      //   if (task.priority == -1 && current_priority == 2)
+      //   {
+      //     break;
+      //   }
+       }
 
       if (task.priority == -1)
       {
@@ -119,14 +144,31 @@ int main()
     CPU_ZERO(&cpuset);
     CPU_SET(i, &cpuset);
     workers[i].cpu = cpuset;
-    workers[i].id = i;
+    workers[i].id = i * 100;
     workers[i].num_workers = num_cpu;
     workers[i].taskqs = gsoc_taskqueue_set_new();
   }
 
   for (int i = 0; i < num_cpu; ++i)
   {
+    for (int j = 0; j < num_of_tasks; ++j)
+    {
+      int priority = j % 3;
+      gsoc_task task;
+      task.priority = priority;
+      task.task_duration = 50 + (rand() % 250);
+      // task.task_duration = 0;
+      task.test_id = workers[i].id + j;
+
+      printf("(CPU%d) Creating task %lld with priority %u\n", sched_getcpu(), task.test_id, task.priority);
+      gsoc_taskqueue_set_push(workers[i].taskqs, task);
+    }
+  }
+
+  for (int i = 0; i < num_cpu; ++i)
+  {
     workers[i].workers = workers;
+
     pthread_create(&tids[i], NULL, parallel_push_pop_take, &workers[i]);
   }
 
