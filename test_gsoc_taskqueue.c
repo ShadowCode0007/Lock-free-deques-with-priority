@@ -88,16 +88,12 @@ void* parallel_push_pop_take(void* s)
       }
     }
   }
+  return NULL;
 }
 
 int main()
 {
   int i;
-  long num_tasks = GSOC_TASKQUEUE_INIT_SIZE * 150;
-  gsoc_task tasks[num_tasks + 1];
-
-  for (i = 0; i < num_tasks; ++i)
-    tasks[i].test_id = i;
 
   long num_cpu = sysconf(_SC_NPROCESSORS_CONF);
   cpu_set_t cpuset;
@@ -115,9 +111,7 @@ int main()
     workers[i].id = i;
     workers[i].num_workers = num_cpu;
     workers[i].logged_worker = logged_worker;
-
     workers[i].taskqs = gsoc_taskqueue_set_new();
-
   }
 
   for(int i = 0; i < num_cpu; ++i) {

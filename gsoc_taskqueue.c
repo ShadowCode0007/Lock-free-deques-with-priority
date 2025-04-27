@@ -69,7 +69,7 @@ gsoc_task gsoc_taskqueue_take(gsoc_taskqueue* this)
     return dummy_task;
   else
     // return gsoc_task_circular_array_get(this->_taskqueue, old_top);
-    this->_array[old_top];
+    return this->_array[old_top];
 }
 
 // Taskqueue set: 3-priority deques per processor
