@@ -24,19 +24,29 @@ typedef struct _worker {
   int logged_worker;
 } worker;
 
+void execute_task(gsoc_task task)
+{
+  // Simulate task execution
+  printf("Executing task %lld on CPU%d (priority %d)\n", task.test_id, sched_getcpu(), task.priority);
+  usleep(task.task_duration * 1000);
+}
+
 void* parallel_push_pop_take(void* s)
 {
   worker* data = (worker*)s;
   pthread_setaffinity_np(pthread_self(), sizeof(data->cpu), &data->cpu);
   pthread_t tid = pthread_self();
-  printf("Creating %d tasks in pthread ID: %lu\n", (GSOC_TASKQUEUE_INIT_SIZE * TESTVAL_EXTENDS), (unsigned long)tid);
+  printf("Creating 30 tasks in CPU%d\n", sched_getcpu());
 
   for (int i = 0; i < 30; ++i) {
     int priority = i % 3;
     gsoc_task task;
     task.priority = priority;
+    task.task_duration = 50 + (rand() % 50);
+    task.test_id = i;
 
-    gsoc_taskqueue_set_push(data->taskqs,task, priority);
+    // printf("(CPU%d) Creating task %lld with priority %u\n", sched_getcpu(), task.test_id, task.priority);
+    gsoc_taskqueue_set_push(data->taskqs, task);
   }
 
   printf("Actual test starts now ------------------------------------\n");
@@ -52,27 +62,29 @@ void* parallel_push_pop_take(void* s)
     task = gsoc_taskqueue_set_pop(data->taskqs, current_priority);
     
     if (task.priority == current_priority) {// data->id == data->logged_worker)
-       printf("%lld is popped by CPU%d (priority %d)\n", task.test_id, sched_getcpu(), current_priority);
-       break;
+      //  printf("%lld is popped by CPU%d (priority %d)\n", task.test_id, sched_getcpu(), current_priority);
+       execute_task(task);
+      //  break;
+      continue;
     }
    
     if (task.priority == -1) { 
-      size_t victim;
-
       task.priority = -1;
 
       for (int i = 0; i < data->num_workers; i++) {
-	  task = gsoc_taskqueue_set_steal_best(data->workers[victim].taskqs, current_priority);
+	        task = gsoc_taskqueue_set_steal_best(data->workers[i].taskqs, current_priority);
           if (task.priority != -1) {
             //if (data->id == data->logged_worker)
-              printf("%lld is taken by CPU%d from CPU%ld (priority %d)\n",
-                   task.test_id, sched_getcpu(), victim, current_priority);
-              break;
+            printf("%lld is taken by CPU%d from CPU%d (priority %d)\n",
+                    task.test_id, sched_getcpu(), i, current_priority);
+            execute_task(task);
+            break;
           }
       }
 
       if (task.priority == -1) {
-      	 current_priority++;
+        printf("current_priority has been incremented to\n");
+        current_priority++;
       }
     }
   }

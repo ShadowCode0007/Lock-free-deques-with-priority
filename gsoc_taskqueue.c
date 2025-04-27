@@ -3,24 +3,10 @@
 #include <string.h>
 #include <assert.h>
 
-// Single queue management
-
-gsoc_taskqueue* gsoc_taskqueue_new()
-{
-  gsoc_taskqueue* this;
-
-  this = malloc(sizeof(gsoc_taskqueue));
-  assert(this);
-
-  this->_top = 0;
-  this->_bottom = 1;
-
-  return this;
-}
-
 void gsoc_taskqueue_push(gsoc_taskqueue* this, gsoc_task task)
 {
-  gsoc_task_circular_array_set(this->_taskqueue, this->_bottom, task);
+  // gsoc_task_circular_array_set(this->_taskqueue, this->_bottom, task);
+  this->_array[this->_bottom] = task;
   ++this->_bottom;
   
   __sync_synchronize();
@@ -44,7 +30,8 @@ gsoc_task gsoc_taskqueue_pop(gsoc_taskqueue* this)
     this->_bottom = old_top;
     return dummy_task;
   } else if (__builtin_expect(num_tasks == 0, 0)) {
-    gsoc_task ret = gsoc_task_circular_array_get(this->_taskqueue, this->_bottom);
+    // gsoc_task ret = gsoc_task_circular_array_get(this->_taskqueue, this->_bottom);
+    gsoc_task ret = this->_array[this->_bottom];
     __sync_synchronize();
     if (!__sync_bool_compare_and_swap(&this->_top, old_top, new_top))
       return dummy_task;
@@ -54,7 +41,8 @@ gsoc_task gsoc_taskqueue_pop(gsoc_taskqueue* this)
       return ret;
     }
   } else {
-    return gsoc_task_circular_array_get(this->_taskqueue, this->_bottom);
+    // return gsoc_task_circular_array_get(this->_taskqueue, this->_bottom);
+    return this->_array[this->_bottom];
   }
 }
 
@@ -80,7 +68,8 @@ gsoc_task gsoc_taskqueue_take(gsoc_taskqueue* this)
   if (!__sync_bool_compare_and_swap(&this->_top, old_top, new_top))
     return dummy_task;
   else
-    return gsoc_task_circular_array_get(this->_taskqueue, old_top);
+    // return gsoc_task_circular_array_get(this->_taskqueue, old_top);
+    this->_array[old_top];
 }
 
 // Taskqueue set: 3-priority deques per processor
@@ -88,26 +77,28 @@ gsoc_task gsoc_taskqueue_take(gsoc_taskqueue* this)
 gsoc_taskqueue_set* gsoc_taskqueue_set_new() {
   gsoc_taskqueue_set* set = malloc(sizeof(gsoc_taskqueue_set));
   assert(set);
-  for (int i = 0; i < PRIORITY_LEVELS; i++) {
-    set->queues[i] = gsoc_taskqueue_new();
-  }
+  // for (int i = 0; i < PRIORITY_LEVELS; i++) {
+  //   set->queues[i] = gsoc_taskqueue_new();
+  // }
   return set;
 }
 
-void gsoc_taskqueue_set_push(gsoc_taskqueue_set* set, gsoc_task task, int priority) {
-  assert(priority >= 0 && priority < PRIORITY_LEVELS);
-  gsoc_taskqueue_push(set->queues[priority], task);
+void gsoc_taskqueue_set_push(gsoc_taskqueue_set* set, gsoc_task task) {
+  assert(task.priority >= 0);
+  // printf("in gsoc_taskqueue_set_push, priority = %d\n", task.priority);
+  assert(task.priority < PRIORITY_LEVELS);
+  gsoc_taskqueue_push(&set->queues[task.priority], task);
 }
 
 gsoc_task gsoc_taskqueue_set_pop(gsoc_taskqueue_set* set, int priority) {
   assert(priority >= 0 && priority < PRIORITY_LEVELS);
-  return gsoc_taskqueue_pop(set->queues[priority]);
+  return gsoc_taskqueue_pop(&set->queues[priority]);
 }
 
 // Steal the best available task by trying from high to low priority
 
 gsoc_task gsoc_taskqueue_set_steal_best(gsoc_taskqueue_set* victim_set, int priority_level) {
-    gsoc_task task = gsoc_taskqueue_take(victim_set->queues[priority_level]);
+    gsoc_task task = gsoc_taskqueue_take(&victim_set->queues[priority_level]);
     return task;
 }
 

@@ -10,10 +10,8 @@ typedef enum {
 
 typedef struct gsoc_task {
   task_priority_t priority;  
-  int task_durartion;
-#ifdef TEST_USE_TASK_ID
+  int task_duration;
   unsigned long long test_id;
-#endif
 } gsoc_task;
 
 #endif /* _GSOC_TASK_H_ */
