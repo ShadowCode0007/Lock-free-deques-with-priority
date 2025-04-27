@@ -12,6 +12,10 @@ gsoc_taskqueue* gsoc_taskqueue_new()
   this = malloc(sizeof(gsoc_taskqueue));
   assert(this);
 
+  this->_taskqueue = malloc(sizeof(gsoc_task_circular_array));
+  assert(this->_taskqueue); 
+
+  this->_taskqueue->_size = 50;
   this->_top = 0;
   this->_bottom = 1;
 
