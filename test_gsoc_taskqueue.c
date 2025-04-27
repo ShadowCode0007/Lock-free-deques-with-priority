@@ -104,7 +104,7 @@ int main()
     workers[i].num_workers = num_cpu;
     workers[i].logged_worker = logged_worker;
 
-    gsoc_taskqueue_set_new();
+    workers[i].taskqs = gsoc_taskqueue_set_new();
 
   }
 
