@@ -4,6 +4,10 @@
 #define _GSOC_TASKQUEUE_H_
 
 #include "gsoc_task.h"
+#include <stdlib.h>
+#include <assert.h>
+#include <stdio.h>
+#include <string.h>
 
 #define GSOC_TASKQUEUE_INIT_SIZE 1
 
