@@ -3,74 +3,154 @@
 #include <string.h>
 #include <assert.h>
 
+#define NUM_TASKS 3
+
 void gsoc_taskqueue_push(gsoc_taskqueue* this, gsoc_task task)
 {
-  // gsoc_task_circular_array_set(this->_taskqueue, this->_bottom, task);
-  this->_array[this->_bottom] = task;
-  ++this->_bottom;
-  
-  __sync_synchronize();
+    size_t b = this->_bottom;
+    this->_array[b % NUM_TASKS] = task;
+    this->_bottom = b + 1;
+    __sync_synchronize();
 }
+
+
+// void gsoc_taskqueue_push(gsoc_taskqueue* this, gsoc_task task)
+// {
+//   // gsoc_task_circular_array_set(this->_taskqueue, this->_bottom, task);
+//   this->_array[this->_bottom] = task;
+//   ++this->_bottom;
+  
+//   __sync_synchronize();
+// }
+
+// gsoc_task gsoc_taskqueue_pop(gsoc_taskqueue* this)
+// {
+//   size_t old_top, new_top;
+//   size_t num_tasks;
+
+//   gsoc_task dummy_task;
+//   dummy_task.priority = -1; 
+
+//   --this->_bottom;
+//   __sync_synchronize();
+//   old_top = this->_top;
+//   new_top = old_top + 1;
+//   num_tasks = this->_bottom - old_top;
+
+//   if (__builtin_expect(num_tasks < 0, 0)) {
+//     this->_bottom = old_top;
+//     return dummy_task;
+//   } else if (__builtin_expect(num_tasks == 0, 0)) {
+//     // gsoc_task ret = gsoc_task_circular_array_get(this->_taskqueue, this->_bottom);
+//     gsoc_task ret = this->_array[this->_bottom];
+//     __sync_synchronize();
+//     if (!__sync_bool_compare_and_swap(&this->_top, old_top, new_top))
+//       return dummy_task;
+//     else {
+//       this->_bottom = new_top;
+//       __sync_synchronize();
+//       return ret;
+//     }
+//   } else {
+//     // return gsoc_task_circular_array_get(this->_taskqueue, this->_bottom);
+//     return this->_array[this->_bottom];
+//   }
+// }
 
 gsoc_task gsoc_taskqueue_pop(gsoc_taskqueue* this)
 {
-  size_t old_top, new_top;
-  size_t num_tasks;
+    gsoc_task dummy_task;
+    dummy_task.priority = -1;
 
-  gsoc_task dummy_task;
-  dummy_task.priority = -1; 
-
-  --this->_bottom;
-  __sync_synchronize();
-  old_top = this->_top;
-  new_top = old_top + 1;
-  num_tasks = this->_bottom - old_top;
-
-  if (__builtin_expect(num_tasks < 0, 0)) {
-    this->_bottom = old_top;
-    return dummy_task;
-  } else if (__builtin_expect(num_tasks == 0, 0)) {
-    // gsoc_task ret = gsoc_task_circular_array_get(this->_taskqueue, this->_bottom);
-    gsoc_task ret = this->_array[this->_bottom];
-    __sync_synchronize();
-    if (!__sync_bool_compare_and_swap(&this->_top, old_top, new_top))
-      return dummy_task;
-    else {
-      this->_bottom = new_top;
-      __sync_synchronize();
-      return ret;
+    size_t b = this->_bottom;
+    if (b == 0) {
+        // Queue is empty
+        return dummy_task;
     }
-  } else {
-    // return gsoc_task_circular_array_get(this->_taskqueue, this->_bottom);
-    return this->_array[this->_bottom];
-  }
+
+    b = b - 1;
+    this->_bottom = b;
+    __sync_synchronize();
+
+    size_t t = this->_top;
+    gsoc_task ret;
+
+    if (t <= b) {
+        // There is at least one item
+        ret = this->_array[b % NUM_TASKS];
+        // No need for CAS, only owner can pop here
+        return ret;
+    } else {
+        // Possibly last item
+        this->_bottom = 0;
+        if (t != b) {
+            // Queue is empty
+            return dummy_task;
+        }
+        // Try to claim the last item
+        if (!__sync_bool_compare_and_swap(&this->_top, t, t + 1)) {
+            // Lost race with a thief
+            return dummy_task;
+        }
+        // Successfully claimed last item
+        ret = this->_array[b % NUM_TASKS];
+        return ret;
+    }
 }
+
+
+// gsoc_task gsoc_taskqueue_take(gsoc_taskqueue* this)
+// {
+//   size_t old_top, new_top;
+//   size_t old_bottom;
+//   size_t num_tasks;
+
+//   __sync_synchronize();
+//   old_top = this->_top;
+//   old_bottom = this->_bottom;
+//   new_top = old_top + 1;
+//   num_tasks = old_bottom - old_top;
+
+//   gsoc_task dummy_task;
+//   dummy_task.priority = -1;
+
+//   if (__builtin_expect(num_tasks <= 0, 0))
+//     return dummy_task;
+
+//   __sync_synchronize();
+//   if (!__sync_bool_compare_and_swap(&this->_top, old_top, new_top))
+//     return dummy_task;
+//   else
+//     // return gsoc_task_circular_array_get(this->_taskqueue, old_top);
+//     return this->_array[old_top];
+// }
 
 gsoc_task gsoc_taskqueue_take(gsoc_taskqueue* this)
 {
-  size_t old_top, new_top;
-  size_t old_bottom;
-  size_t num_tasks;
+    size_t old_top, new_top;
+    size_t old_bottom;
+    size_t num_tasks;
+    __sync_synchronize();
 
-  __sync_synchronize();
-  old_top = this->_top;
-  old_bottom = this->_bottom;
-  new_top = old_top + 1;
-  num_tasks = old_bottom - old_top;
+    old_top = this->_top;
+    old_bottom = this->_bottom;
+    new_top = old_top + 1;
+    num_tasks = old_bottom - old_top;
 
-  gsoc_task dummy_task;
-  dummy_task.priority = -1;
+    gsoc_task dummy_task;
+    dummy_task.priority = -1;
 
-  if (__builtin_expect(num_tasks <= 0, 0))
-    return dummy_task;
+    if (__builtin_expect(num_tasks <= 0, 0))
+        return dummy_task;
 
-  __sync_synchronize();
-  if (!__sync_bool_compare_and_swap(&this->_top, old_top, new_top))
-    return dummy_task;
-  else
-    // return gsoc_task_circular_array_get(this->_taskqueue, old_top);
-    return this->_array[old_top];
+    __sync_synchronize();
+
+    if (!__sync_bool_compare_and_swap(&this->_top, old_top, new_top))
+        return dummy_task;
+    else
+        return this->_array[old_top % NUM_TASKS];
 }
+
 
 // Taskqueue set: 3-priority deques per processor
 

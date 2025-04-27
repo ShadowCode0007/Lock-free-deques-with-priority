@@ -14,6 +14,7 @@
 #define TESTVAL_EXTENDS 1
 #endif
 
+#define num_of_tasks 3
 
 typedef struct _worker {
   int id;
@@ -35,10 +36,9 @@ void* parallel_push_pop_take(void* s)
 {
   worker* data = (worker*)s;
   pthread_setaffinity_np(pthread_self(), sizeof(data->cpu), &data->cpu);
-  pthread_t tid = pthread_self();
   printf("Creating 30 tasks in CPU%d\n", sched_getcpu());
 
-  for (int i = 0; i < 30; ++i) {
+  for (int i = 0; i < num_of_tasks; ++i) {
     int priority = i % 3;
     gsoc_task task;
     task.priority = priority;
@@ -50,7 +50,7 @@ void* parallel_push_pop_take(void* s)
   }
 
   printf("Actual test starts now ------------------------------------\n");
-  printf("Current pthread ID: %lu\n", (unsigned long)tid);
+  printf("Current CPU%d\n", sched_getcpu());
   
   int current_priority = 0;
 

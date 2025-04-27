@@ -29,8 +29,6 @@ typedef struct _gsoc_taskqueue_set {
   gsoc_taskqueue queues[PRIORITY_LEVELS]; // 0: high, 1: medium, 2: low
 } gsoc_taskqueue_set;
 
-// Constructor/destructor for individual queues
-// gsoc_taskqueue* gsoc_taskqueue_new();
 
 // Task operations on a single queue
 void gsoc_taskqueue_push(gsoc_taskqueue* this, gsoc_task task);
