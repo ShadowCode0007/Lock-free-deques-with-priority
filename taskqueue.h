@@ -1,18 +1,11 @@
-/* Implemented after Chapter 16 of "The Art of Multiprocessor Programming"
-   This is lock-free work stealing deque. */
-#ifndef _GSOC_TASKQUEUE_H_
-#define _GSOC_TASKQUEUE_H_
+#define _GNU_SOURCE
 
-#include "gsoc_task.h"
+#include "task.h"
 #include <stdlib.h>
 #include <assert.h>
 #include <stdio.h>
 #include <string.h>
-
-#define GSOC_TASKQUEUE_INIT_SIZE 1
-
-// #define GSOC_TASKQUEUE_INIT_SIZE 13172
-
+#include <sched.h>
 // Priorities: 0 = high, 1 = medium, 2 = low
 #define PRIORITY_LEVELS 3
 
@@ -47,4 +40,3 @@ gsoc_task gsoc_taskqueue_set_pop(gsoc_taskqueue_set *set, int priority);
 // Stealing strategy to pick best task among priorities
 gsoc_task gsoc_taskqueue_set_steal_best(gsoc_taskqueue_set *victim_set, int priority_level, int cpu);
 
-#endif /* _GSOC_TASKQUEUE_H_ */

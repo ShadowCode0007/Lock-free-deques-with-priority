@@ -1,7 +1,4 @@
-#include "gsoc_taskqueue.h"
-#include <stdlib.h>
-#include <string.h>
-#include <assert.h>
+#include "taskqueue.h"
 
 #define NUM_TASKS 150
 

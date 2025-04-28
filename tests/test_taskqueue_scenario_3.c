@@ -1,8 +1,8 @@
 #define TEST_USE_TASK_ID
 
 #define _GNU_SOURCE
-#include "gsoc_taskqueue.h"
-#include "gsoc_time.h"
+#include "../taskqueue.h"
+#include "../time.h"
 #include <stdio.h>
 #include <stdlib.h>
 #include <pthread.h>
@@ -36,24 +36,6 @@ void *parallel_push_pop_take(void *s)
 {
   worker *data = (worker *)s;
   pthread_setaffinity_np(pthread_self(), sizeof(data->cpu), &data->cpu);
-  //printf("~~~~~ Creating %d tasks in CPU%d ~~~~~\n", num_of_tasks, sched_getcpu());
-
-  for (int i = 0; i < data->num_workers; i++)
-  {
-
-    for (int j = 0; j < PRIORITY_LEVELS; j++)
-    {
-      //printf("Size of worker %d and top is %lu bottom is %lu\n", i, data->workers[i].taskqs->queues[j]._top, data->workers[i].taskqs->queues[j]._bottom);
-      int start = data->workers[i].taskqs->queues[j]._top;
-      int end = data->workers[i].taskqs->queues[j]._bottom;
-      //printf("CPU%d: %d tasks in priority %d\n", i, end - start, j);
-      for (int k = start; k < end; k++)
-      {
-        gsoc_task task = data->workers[i].taskqs->queues[j]._array[k];
-        //printf("CPU%d: Task %lld with priority %d\n", i, task.test_id, task.priority);
-      }
-    }
-  }
 
   int current_priority = 0;
   double start_time = gettimeofday_sec();
@@ -82,18 +64,7 @@ void *parallel_push_pop_take(void *s)
 
     if (task.priority == -1)
     {
-      int start = rand() % data->num_workers;
-      //for (int i = (start + 1) % data->num_workers; i != start; i = (i + 1) % data->num_workers) {
-        //if (i * 100 == data->id)
-          //continue;
-
-       //printf("Data->num_workers is %lu\n", data->num_workers);
-       //for (int i = (start + 1) % data->num_workers; ; i = (i + 1) % data->num_workers) {
-    	 //  if (i == start)
-           //  break;
-	 
        for (int i = 0; i < data->num_workers; i++) {
-         printf("CPU %d Trying to steal from CPU %d\n", sched_getcpu(), i);
          task = gsoc_taskqueue_set_steal_best(data->workers[i].taskqs, current_priority, i);
 
          if (task.priority != -1)
@@ -116,9 +87,8 @@ void *parallel_push_pop_take(void *s)
   	 fprintf(stderr, "%f sec taken for priority %d tasks in CPU%d\n", end_time - start_time, current_priority - 1, sched_getcpu());
 	 start_time = end_time;
 
-	 steal_count_per_priority = 0;
-
 	 fprintf(stderr, "\nTasks stolen by CPU %d of priority %d is %d \n", sched_getcpu(), current_priority - 1, steal_count_per_priority);
+	 steal_count_per_priority = 0;
          printf("(CPU%d) current_priority has been incremented to %d\n", sched_getcpu(), current_priority);
       }
     }
@@ -156,6 +126,44 @@ int main()
     for (int j = 0; j < num_of_tasks; ++j)
     {
       int priority = (j + 1) % 3;
+
+      if (i == 0 && j < 100)
+          priority = 0;
+
+      if (i == 0 && j >= 100 && j < 120)
+          priority = 1;
+
+      if (i == 0 && j >= 120)
+          priority = 2;
+
+      if (i == 1 && j < 20)
+          priority = 0;
+
+      if (i == 1 && j >= 20 && j < 100)
+          priority = 1;
+
+      if (i == 1 && j >= 100)
+          priority = 2;
+
+      if (i == 2 && j < 50)
+          priority = 0;
+
+      if (i == 2 && j >= 50 && j < 70)
+          priority = 1;
+
+      if (i == 2 && j >= 70)
+          priority = 2;
+
+
+      if (i == 3 && j < 120)
+          priority = 0;
+
+      if (i == 3 && j >= 120 && j < 130)
+          priority = 1;
+
+      if (i == 3 && j >= 130)
+          priority = 2;
+   
       gsoc_task task;
       task.priority = priority;
 
@@ -170,7 +178,7 @@ int main()
 
       task.test_id = workers[i].id + j + 1;
 
-      //printf("(CPU%d) Creating task %lld with priority %u\n", sched_getcpu(), task.test_id, task.priority);
+      printf("(CPU%d) Creating task %lld with priority %u\n", sched_getcpu(), task.test_id, task.priority);
       gsoc_taskqueue_set_push(workers[i].taskqs, task);
     }
   }

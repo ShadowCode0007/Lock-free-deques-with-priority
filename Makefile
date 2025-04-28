@@ -1,95 +1,55 @@
-# CC is set by $ export CC=hoge
+# Makefile for Priority-Aware Work Stealing Tests
 
+# Compiler and flags
 CC = gcc
 CFLAGS = -Wall -O2 -g -DDEBUG
 LDFLAGS = -lpthread -lrt
-INCLUDES =
 
-SRCS = $(wildcard *.c)
-OBJS = $(subst .c,.o,$(SRCS))
-DEPENDS = $(subst .c,.d,$(SRCS))
-TARGETS = test_gsoc_taskqueue test_gsoc_task_circular_array
-TEST_TARGETS = TEST_gsoc_task_circular_array \
-               TEST_gsoc_taskqueue
+# Source files and directories
+SRC_DIR = .
+TEST_DIR = ./tests
+BUILD_DIR = ./build
+LOG_DIR = ./logs
 
+# Source files
+SRC_FILES = $(SRC_DIR)/taskqueue.c
 
-TESTVAL_EXTENDS = 50
+# Get all test files
+TEST_FILES = $(wildcard $(TEST_DIR)/*.c)
+TEST_EXECS = $(patsubst $(TEST_DIR)/%.c,$(BUILD_DIR)/%,$(TEST_FILES))
 
-
+# Default target - compile and run all tests
 .PHONY: all
-all: $(TARGETS)
+all: setup $(TEST_EXECS) run_tests
 
+# Setup directories
+setup:
+	@mkdir -p $(BUILD_DIR)
+	@mkdir -p $(LOG_DIR)
+
+# Compile rule for each test executable
+$(BUILD_DIR)/%: $(TEST_DIR)/%.c $(SRC_FILES)
+	@echo "Compiling $<..."
+	@$(CC) $(CFLAGS) $(SRC_FILES) $< -o $@ $(LDFLAGS)
+
+# Run all tests
+run_tests: $(TEST_EXECS)
+	@echo "Running all tests..."
+	@for test in $(TEST_EXECS); do \
+		echo "Running $${test}..."; \
+		base_name=$$(basename $$test); \
+		$$test > $(LOG_DIR)/$${base_name}.log 2> $(LOG_DIR)/$${base_name}.debug.log; \
+		if [ $$? -eq 0 ]; then \
+			echo "$${base_name}: SUCCESS"; \
+		else \
+			echo "$${base_name}: FAILED"; \
+		fi; \
+	done
+
+# Clean up build artifacts and logs
 .PHONY: clean
 clean:
-	rm -f $(OBJS) $(TARGETS) $(DEPENDS)
-
-.PHONY: test
-test: $(TEST_TARGETS)
-
-.PHONY: TEST_gsoc_taskqueue
-TEST_gsoc_task_circular_array: test_gsoc_task_circular_array
-	@echo ""
-	@echo "=== TEST_gsoc_task_circular_array ==="
-	@./test_gsoc_task_circular_array ; \
-	if [ $$? -ne 0 ]; then \
-	    echo "Faild. This might be because you use 32bit CPU (and the pointer address cannot be so long). [NG]" ; \
-	else \
-	    echo "Success [OK]" ; \
-	fi
-
-.PHONY: TEST_gsoc_taskqueue
-TEST_gsoc_taskqueue: test_gsoc_taskqueue
-	@echo ""
-	@echo "=== TEST_gsoc_taskqueue ==="
-	@echo "You ALWAYS need to Recompile test_gsoc_taskqueue.c to make -D TESTVAL_* enable."
-# Create logfile first since $(shell)  is extracted before all other commands
-	$(shell ./test_gsoc_taskqueue > test_gsoc_taskqueue.log 2> debug.log)
-
-# Count number of unique digits
-	@LINES=$(shell wc -l < test_gsoc_taskqueue.log) ;UNIQS=$(shell sort -g test_gsoc_taskqueue.log |awk '{print $$1}' |uniq |wc -l) ;EXPECT=$(shell expr 131072 \* $(TESTVAL_EXTENDS)) ; \
-	if [ $$UNIQS -lt $$EXPECT ]; then \
-		if [ $$LINES -ne $$UNIQS ]; then \
-			echo "Unique numbers ($$UNIQS) are fewer than expected ($$EXPECT) due to duplicated values [NG]" ; \
-		else \
-			echo "Unique numbers are fewer than expected due to skipping cells of taskqueue [NG]" ; \
-		fi ; \
-	elif [ $$UNIQS -eq $$EXPECT ]; then \
-		echo "Unique numbers are the same as expected [OK]" ; \
-	else \
-		echo "I DON'T KNOW WHAT IS HAPPNING TO UNIQUE NUMBER [NG]" ;\
-	fi
-
-# Each number should be in a range
-	@MIN=$(shell sort -g test_gsoc_taskqueue.log |head -n 1 |awk '{print $$1}') ; expr 0 \<= $$MIN > /dev/null ; \
-	if [ $$? -ne 0 ]; then \
-		echo "A number out of range [NG]" ; \
-	else \
-		echo "Minimum number is $$MIN [OK]" ; \
-	fi
-	@MAX=$(shell sort -g test_gsoc_taskqueue.log |tail -n 1 |awk '{print $$1}') ;UPPER_LIMIT=$(shell expr 131072 \* $(TESTVAL_EXTENDS)) ; \
-	expr \( $$MAX + 1 \) = $$UPPER_LIMIT > /dev/null ; \
-	if [ $$? -ne 0 ]; then \
-		echo "Maximum number $$MAX is different from expected value upper limit $$UPPER_LIMIT - 1 [NG]" ; \
-	else \
-		echo "Maximum number is $$MAX while upper limit is $$UPPER_LIMIT [OK]" ; \
-	fi
-
-test_gsoc_taskqueue: gsoc_taskqueue.o test_gsoc_taskqueue.c
-	$(CC) $(CFLAGS) $(INCLUDES) $^ -o $@ $(LDFLAGS) -D TESTVAL_EXTENDS=$(TESTVAL_EXTENDS)
-
-test_gsoc_task_circular_array: gsoc_task_circular_array.h test_gsoc_task_circular_array.o
-	$(CC) $(CFLAGS) $(INCLUDES) $^ -o $@ $(LDFLAGS)
-
-.SUFFIXES: .c .o
-.c.o:
-	$(CC) $(CFLAGS) $(INCLUDES) -c $< -o $@ $(LDFLAGS)
-
-%.d: %.c
-	@set -e; $(CC) -MM $(CFLAGS) $< \
-		| sed 's/\($*\)\.o[ :]*/\1.o $@ : /g' > $@; \
-		[ -s $@ ] || rm -f $@
--include $(DEPENDS)
-
-.PHONY: check-syntax
-check-syntax:
-	gcc $(CFLAGS) -fsyntax-only $(CHK_SOURCES)
+	@echo "Cleaning up everything..."
+	@rm -rf $(BUILD_DIR)/*
+	@rm -rf $(LOG_DIR)/*
+	@echo "All build artifacts and logs have been removed."
