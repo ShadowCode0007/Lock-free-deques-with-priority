@@ -7,6 +7,7 @@
 #include <assert.h>
 #include <utmpx.h>
 #include <unistd.h>
+#include <math.h>
 
 #define num_of_tasks 2880
 
@@ -67,7 +68,9 @@ void *parallel_push_pop_take(void *s)
 
     if (task.priority == -1)
     {
-       for (int i = 0; i < data->num_workers; i++) {
+       int check_cpus = (int)sqrt((double)data->num_workers);
+
+       for (int i = 0; i < check_cpus; i++) {
          task = gsoc_taskqueue_set_steal_best(data->workers[i].taskqs, current_priority, i);
 
          if (task.priority != -1)

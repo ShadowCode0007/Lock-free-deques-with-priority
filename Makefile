@@ -3,7 +3,7 @@
 # Compiler and flags
 CC = gcc
 CFLAGS = -Wall -O2 -g -DDEBUG
-LDFLAGS = -lpthread -lrt
+LDFLAGS = -lpthread -lrt -lm
 
 # Source files and directories
 SRC_DIR = .
