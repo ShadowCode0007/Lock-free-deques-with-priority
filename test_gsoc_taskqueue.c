@@ -14,7 +14,7 @@
 #define TESTVAL_EXTENDS 1
 #endif
 
-#define num_of_tasks 25
+#define num_of_tasks 1500
 
 typedef struct _worker
 {
@@ -28,7 +28,7 @@ typedef struct _worker
 void execute_task(gsoc_task task)
 {
   // Simulate task execution
-  printf("(CPU%d) Executing task %lld (priority %d)\n", sched_getcpu(), task.test_id, task.priority);
+  //printf("(CPU%d) Executing task %lld (priority %d)\n", sched_getcpu(), task.test_id, task.priority);
   usleep(task.task_duration * 1000);
 }
 
@@ -36,21 +36,21 @@ void *parallel_push_pop_take(void *s)
 {
   worker *data = (worker *)s;
   pthread_setaffinity_np(pthread_self(), sizeof(data->cpu), &data->cpu);
-  printf("~~~~~ Creating %d tasks in CPU%d ~~~~~\n", num_of_tasks, sched_getcpu());
+  //printf("~~~~~ Creating %d tasks in CPU%d ~~~~~\n", num_of_tasks, sched_getcpu());
 
   for (int i = 0; i < data->num_workers; i++)
   {
 
     for (int j = 0; j < PRIORITY_LEVELS; j++)
     {
-      printf("Size of worker %d and top is %lu bottom is %lu\n", i, data->workers[i].taskqs->queues[j]._top, data->workers[i].taskqs->queues[j]._bottom);
+      //printf("Size of worker %d and top is %lu bottom is %lu\n", i, data->workers[i].taskqs->queues[j]._top, data->workers[i].taskqs->queues[j]._bottom);
       int start = data->workers[i].taskqs->queues[j]._top;
       int end = data->workers[i].taskqs->queues[j]._bottom;
       //printf("CPU%d: %d tasks in priority %d\n", i, end - start, j);
       for (int k = start; k < end; k++)
       {
         gsoc_task task = data->workers[i].taskqs->queues[j]._array[k];
-        printf("CPU%d: Task %lld with priority %d\n", i, task.test_id, task.priority);
+        //printf("CPU%d: Task %lld with priority %d\n", i, task.test_id, task.priority);
       }
     }
   }
@@ -139,11 +139,19 @@ int main()
       int priority = (j + 1) % 3;
       gsoc_task task;
       task.priority = priority;
-      task.task_duration = 50 + (rand() % 250);
-      // task.task_duration = 0;
+
+      if (i == 0)
+      	task.task_duration = 50;
+      if (i == 1)
+	task.task_duration = 10;
+      if (i == 2)
+	 task.task_duration = 150;
+      if (i == 3)
+	  task.task_duration = 100;
+
       task.test_id = workers[i].id + j + 1;
 
-      printf("(CPU%d) Creating task %lld with priority %u\n", sched_getcpu(), task.test_id, task.priority);
+      //printf("(CPU%d) Creating task %lld with priority %u\n", sched_getcpu(), task.test_id, task.priority);
       gsoc_taskqueue_set_push(workers[i].taskqs, task);
     }
   }

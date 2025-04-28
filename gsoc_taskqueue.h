@@ -19,7 +19,7 @@
 typedef struct _gsoc_taskqueue
 {
   // gsoc_task_circular_array* _taskqueue;       // array of gsoc_task*
-  gsoc_task _array[80];
+  gsoc_task _array[1500];
   unsigned long long _size;
   volatile size_t _top;    // where stealing starts from
   volatile size_t _bottom; // where pushing occurs

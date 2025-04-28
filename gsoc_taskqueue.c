@@ -3,7 +3,7 @@
 #include <string.h>
 #include <assert.h>
 
-#define NUM_TASKS 25
+#define NUM_TASKS 1500
 
 void gsoc_taskqueue_push(gsoc_taskqueue *this, gsoc_task task)
 {
@@ -50,7 +50,6 @@ void gsoc_taskqueue_push(gsoc_taskqueue *this, gsoc_task task)
    }
  }
 
-*/
 
 gsoc_task gsoc_taskqueue_pop(gsoc_taskqueue *this)
 {
@@ -100,6 +99,45 @@ gsoc_task gsoc_taskqueue_pop(gsoc_taskqueue *this)
 }
 
 
+*/
+
+// Pop a task from the queue (used by owner thread)
+gsoc_task gsoc_taskqueue_pop(gsoc_taskqueue* this) {
+  gsoc_task dummy_task;
+  dummy_task.priority = -1;
+
+  size_t b = this->_bottom;
+  if (b == 0) {
+    // Queue is empty
+    return dummy_task;
+  }
+
+  b = b - 1;
+  this->_bottom = b;
+  __sync_synchronize(); // Memory barrier after updating bottom
+
+  size_t t = this->_top;
+
+  if (t <= b) {
+    // There is at least one item
+    gsoc_task ret = this->_array[b % NUM_TASKS];
+
+    if (t == b) {
+      // Last item, need to use CAS
+      if (!__sync_bool_compare_and_swap(&this->_top, t, t + 1)) {
+        // Lost race with a thief
+        ret = dummy_task;
+      }
+      this->_bottom = t + 1; // Reset bottom
+    }
+    return ret;
+  } else {
+    // Queue became empty
+    this->_bottom = t;
+    return dummy_task;
+  }
+}
+
 gsoc_task gsoc_taskqueue_take(gsoc_taskqueue *this)
 {
   size_t old_top, new_top;
@@ -135,7 +173,12 @@ gsoc_taskqueue_set *gsoc_taskqueue_set_new()
 {
   gsoc_taskqueue_set *set = malloc(sizeof(gsoc_taskqueue_set));
   assert(set);
-  
+ 
+  for (int i = 0; i < PRIORITY_LEVELS; i++) {
+    set->queues[i]._top = 0;
+    set->queues[i]._bottom = 0;
+  }
+
   return set;
 }
 
