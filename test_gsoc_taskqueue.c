@@ -28,7 +28,7 @@ typedef struct _worker
 void execute_task(gsoc_task task)
 {
   // Simulate task execution
-  //printf("(CPU%d) Executing task %lld (priority %d)\n", sched_getcpu(), task.test_id, task.priority);
+  printf("(CPU%d) Executing task %lld (priority %d)\n", sched_getcpu(), task.test_id, task.priority);
   usleep(task.task_duration * 1000);
 }
 
@@ -77,10 +77,17 @@ void *parallel_push_pop_take(void *s)
     if (task.priority == -1)
     {
       int start = rand() % data->num_workers;
-      for (int i = (start + 1) % data->num_workers; i != start; i = (i + 1) % data->num_workers) {
-        if (i == data->id)
-          continue;
+      //for (int i = (start + 1) % data->num_workers; i != start; i = (i + 1) % data->num_workers) {
+        //if (i * 100 == data->id)
+          //continue;
 
+       //printf("Data->num_workers is %lu\n", data->num_workers);
+       //for (int i = (start + 1) % data->num_workers; ; i = (i + 1) % data->num_workers) {
+    	 //  if (i == start)
+           //  break;
+	 
+       for (int i = 0; i < data->num_workers; i++) {
+         printf("CPU %d Trying to steal from CPU %d\n", sched_getcpu(), i);
          task = gsoc_taskqueue_set_steal_best(data->workers[i].taskqs, current_priority, i);
 
          if (task.priority != -1)
