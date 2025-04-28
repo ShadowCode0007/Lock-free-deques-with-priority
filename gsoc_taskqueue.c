@@ -3,16 +3,16 @@
 #include <string.h>
 #include <assert.h>
 
-#define NUM_TASKS 3
+#define NUM_TASKS 30
 
 void gsoc_taskqueue_push(gsoc_taskqueue *this, gsoc_task task)
 {
   size_t b = this->_bottom;
   this->_array[b % NUM_TASKS] = task;
+  // this->_array[b] = task;
   this->_bottom = b + 1;
   __sync_synchronize();
 }
-
 
 // gsoc_task gsoc_taskqueue_pop(gsoc_taskqueue* this)
 // {
@@ -71,6 +71,7 @@ gsoc_task gsoc_taskqueue_pop(gsoc_taskqueue *this)
   {
     // There is at least one item
     ret = this->_array[b % NUM_TASKS];
+    // ret = this->_array[b];
     // No need for CAS, only owner can pop here
     return ret;
   }
@@ -91,6 +92,7 @@ gsoc_task gsoc_taskqueue_pop(gsoc_taskqueue *this)
     }
     // Successfully claimed last item
     ret = this->_array[b % NUM_TASKS];
+    // ret = this->_array[b];
     return ret;
   }
 }
@@ -111,16 +113,22 @@ gsoc_task gsoc_taskqueue_take(gsoc_taskqueue *this)
   dummy_task.priority = -1;
 
   if (__builtin_expect(num_tasks <= 0, 0))
+  {
+    printf("gsoc_taskqueue_take: no tasks available\n");
     return dummy_task;
+  }
 
   __sync_synchronize();
 
   if (!__sync_bool_compare_and_swap(&this->_top, old_top, new_top))
+  {
+    printf("gsoc_taskqueue_take: CAS failed\n");
     return dummy_task;
+  }
   else
   {
-
     return this->_array[old_top % NUM_TASKS];
+    // return this->_array[old_top];
   }
 }
 
