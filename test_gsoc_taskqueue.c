@@ -14,7 +14,7 @@
 #define TESTVAL_EXTENDS 1
 #endif
 
-#define num_of_tasks 1500
+#define num_of_tasks 150
 
 typedef struct _worker
 {
@@ -76,16 +76,13 @@ void *parallel_push_pop_take(void *s)
 
     if (task.priority == -1)
     {
-      for (int i = 0; i < data->num_workers; i++)
-      {
+      int start = rand() % data->num_workers;
+      for (int i = (start + 1) % data->num_workers; i != start; i = (i + 1) % data->num_workers) {
         if (i == data->id)
           continue;
 
-         task = gsoc_taskqueue_set_steal_best(data->workers[i].taskqs, current_priority);
+         task = gsoc_taskqueue_set_steal_best(data->workers[i].taskqs, current_priority, i);
 
-	 if (task.test_id == 0) {
-	   break;
-	 }
          if (task.priority != -1)
          {
            printf("%lld is taken by CPU%d from CPU%d (priority %d)\n",
@@ -97,7 +94,7 @@ void *parallel_push_pop_take(void *s)
 
        }
 
-      if (found == 0 || task.test_id == 0)
+      if (found == 0)
       {
          current_priority++;
          printf("(CPU%d) current_priority has been incremented to %d\n", sched_getcpu(), current_priority);
@@ -141,13 +138,13 @@ int main()
       task.priority = priority;
 
       if (i == 0)
-      	task.task_duration = 50;
+      	task.task_duration = 90;
       if (i == 1)
 	task.task_duration = 10;
       if (i == 2)
-	 task.task_duration = 150;
+	 task.task_duration = 60;
       if (i == 3)
-	  task.task_duration = 100;
+	  task.task_duration = 20;
 
       task.test_id = workers[i].id + j + 1;
 
