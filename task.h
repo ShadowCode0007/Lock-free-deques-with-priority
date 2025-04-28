@@ -6,9 +6,9 @@ typedef enum
   PRIORITY_LOW = 2
 } task_priority_t;
 
-typedef struct gsoc_task
+typedef struct task
 {
   task_priority_t priority;
-  int task_duration;
+  int input;
   unsigned long long test_id;
-} gsoc_task;
+} task;

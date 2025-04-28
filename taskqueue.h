@@ -9,32 +9,32 @@
 // Priorities: 0 = high, 1 = medium, 2 = low
 #define PRIORITY_LEVELS 3
 
-typedef struct _gsoc_taskqueue
+typedef struct taskqueue
 {
-  gsoc_task _array[3000];
+  task _array[3000];
   unsigned long long _size;
   volatile size_t _top;    // where stealing starts from
   volatile size_t _bottom; // where pushing occurs
-} gsoc_taskqueue;
+} taskqueue;
 
 // A triple-priority deque per processor
-typedef struct _gsoc_taskqueue_set
+typedef struct taskqueue_set
 {
-  gsoc_taskqueue queues[PRIORITY_LEVELS]; // 0: high, 1: medium, 2: low
-} gsoc_taskqueue_set;
+  taskqueue queues[PRIORITY_LEVELS]; // 0: high, 1: medium, 2: low
+} taskqueue_set;
 
 // Task operations on a single queue
-void gsoc_taskqueue_push(gsoc_taskqueue *this, gsoc_task task);
-gsoc_task gsoc_taskqueue_pop(gsoc_taskqueue *this);
-gsoc_task gsoc_taskqueue_take(gsoc_taskqueue *this);
+void taskqueue_push(taskqueue *this, task task);
+task taskqueue_pop(taskqueue *this);
+task taskqueue_take(taskqueue *this);
 
 // Constructor/destructor for the 3-deque structure
-gsoc_taskqueue_set *gsoc_taskqueue_set_new();
-void gsoc_taskqueue_set_delete(gsoc_taskqueue_set *set);
+taskqueue_set *taskqueue_set_new();
+void taskqueue_set_delete(taskqueue_set *set);
 
 // Push/pop by priority
-void gsoc_taskqueue_set_push(gsoc_taskqueue_set *set, gsoc_task task);
-gsoc_task gsoc_taskqueue_set_pop(gsoc_taskqueue_set *set, int priority);
+void taskqueue_set_push(taskqueue_set *set, task task);
+task taskqueue_set_pop(taskqueue_set *set, int priority);
 
 // Stealing strategy to pick best task among priorities
-gsoc_task gsoc_taskqueue_set_steal_best(gsoc_taskqueue_set *victim_set, int priority_level, int cpu);
+task taskqueue_set_steal_best(taskqueue_set *victim_set, int priority_level, int cpu);

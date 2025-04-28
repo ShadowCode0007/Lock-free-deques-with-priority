@@ -20,7 +20,7 @@ typedef struct _worker
 {
   int id;
   cpu_set_t cpu;
-  gsoc_taskqueue_set *taskqs; // Priority 0 (High), 1 (Medium), 2 (Low)
+  taskqueue_set *taskqs; // Priority 0 (High), 1 (Medium), 2 (Low)
   struct _worker *workers;
   long num_workers;
 } worker;
@@ -34,11 +34,11 @@ int nthFibonacci(int n){
     return nthFibonacci(n - 1) + nthFibonacci(n - 2);
 }
 
-void execute_task(gsoc_task task)
+void execute_task(task task)
 {
   // Simulate task execution
   printf("(CPU%d) Executing task %lld (priority %d)\n", sched_getcpu(), task.test_id, task.priority);
-  nthFibonacci(task.task_duration);
+  nthFibonacci(task.input);
 }
 
 void *parallel_push_pop_take(void *s)
@@ -54,14 +54,14 @@ void *parallel_push_pop_take(void *s)
 
   while (1)
   {
-    gsoc_task task;
+    task task;
 
     if (current_priority > 2) {
 	 fprintf(stderr, "\nTasks stolen by CPU%d in total is %d \n", sched_getcpu(), steal_count_total);
          break;
     }
 
-    task = gsoc_taskqueue_set_pop(data->taskqs, current_priority);
+    task = taskqueue_set_pop(data->taskqs, current_priority);
 
     if (task.priority == current_priority)
     {
@@ -74,7 +74,7 @@ void *parallel_push_pop_take(void *s)
     if (task.priority == -1)
     {
        for (int i = 0; i < data->num_workers; i++) {
-         task = gsoc_taskqueue_set_steal_best(data->workers[i].taskqs, current_priority, i);
+         task = taskqueue_set_steal_best(data->workers[i].taskqs, current_priority, i);
 
          if (task.priority != -1)
          {
@@ -127,7 +127,7 @@ int main()
     workers[i].cpu = cpuset;
     workers[i].id = i * 100;
     workers[i].num_workers = num_cpu;
-    workers[i].taskqs = gsoc_taskqueue_set_new();
+    workers[i].taskqs = taskqueue_set_new();
   }
 
   for (int i = 0; i < num_cpu; ++i)
@@ -187,21 +187,21 @@ int main()
 	  }
       }  
        
-      gsoc_task task;
+      task task;
       task.priority = priority;
      
       if (priority == 0)
-         task.task_duration = 20 + (rand() % (40 - 20 + 1)); // random between 20 and 40 inclusive
+         task.input = 20 + (rand() % (40 - 20 + 1)); // random between 20 and 40 inclusive
       else if (priority == 1)
-         task.task_duration = 10 + (rand() % (20 - 10 + 1)); // random between 10 and 20 inclusive
+         task.input = 10 + (rand() % (20 - 10 + 1)); // random between 10 and 20 inclusive
       else if (priority == 2)
-          task.task_duration = 0 + (rand() % (10 - 0 + 1));
+          task.input = 0 + (rand() % (10 - 0 + 1));
 
 
       task.test_id = workers[i].id + j + 1;
 
       printf("(CPU%d) Creating task %lld with priority %u\n", sched_getcpu(), task.test_id, task.priority);
-      gsoc_taskqueue_set_push(workers[i].taskqs, task);
+      taskqueue_set_push(workers[i].taskqs, task);
     }
   }
 
