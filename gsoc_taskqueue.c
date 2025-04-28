@@ -3,7 +3,7 @@
 #include <string.h>
 #include <assert.h>
 
-#define NUM_TASKS 3
+#define NUM_TASKS 25
 
 void gsoc_taskqueue_push(gsoc_taskqueue *this, gsoc_task task)
 {
@@ -13,40 +13,44 @@ void gsoc_taskqueue_push(gsoc_taskqueue *this, gsoc_task task)
   __sync_synchronize();
 }
 
+/*
+ gsoc_task gsoc_taskqueue_pop(gsoc_taskqueue* this)
+ {
+   size_t old_top, new_top;
+   size_t num_tasks;
 
-// gsoc_task gsoc_taskqueue_pop(gsoc_taskqueue* this)
-// {
-//   size_t old_top, new_top;
-//   size_t num_tasks;
+   gsoc_task dummy_task;
+   dummy_task.priority = -1;
 
-//   gsoc_task dummy_task;
-//   dummy_task.priority = -1;
+   --this->_bottom;
+   __sync_synchronize();
+   old_top = this->_top;
+   new_top = old_top + 1;
+   num_tasks = this->_bottom - old_top;
 
-//   --this->_bottom;
-//   __sync_synchronize();
-//   old_top = this->_top;
-//   new_top = old_top + 1;
-//   num_tasks = this->_bottom - old_top;
+   printf("Number of tasks is %d\n", num_tasks);
 
-//   if (__builtin_expect(num_tasks < 0, 0)) {
-//     this->_bottom = old_top;
-//     return dummy_task;
-//   } else if (__builtin_expect(num_tasks == 0, 0)) {
-//     // gsoc_task ret = gsoc_task_circular_array_get(this->_taskqueue, this->_bottom);
-//     gsoc_task ret = this->_array[this->_bottom];
-//     __sync_synchronize();
-//     if (!__sync_bool_compare_and_swap(&this->_top, old_top, new_top))
-//       return dummy_task;
-//     else {
-//       this->_bottom = new_top;
-//       __sync_synchronize();
-//       return ret;
-//     }
-//   } else {
-//     // return gsoc_task_circular_array_get(this->_taskqueue, this->_bottom);
-//     return this->_array[this->_bottom];
-//   }
-// }
+   if (__builtin_expect(num_tasks < 0, 0)) {
+     this->_bottom = old_top;
+     return dummy_task;
+   } else if (__builtin_expect(num_tasks == 0, 0)) {
+      //gsoc_task ret = gsoc_task_circular_array_get(this->_taskqueue, this->_bottom);
+      gsoc_task ret = this->_array[this->_bottom];
+     __sync_synchronize();
+     if (!__sync_bool_compare_and_swap(&this->_top, old_top, new_top))
+       return dummy_task;
+     else {
+       this->_bottom = new_top;
+       __sync_synchronize();
+       return ret;
+     }
+   } else {
+     // return gsoc_task_circular_array_get(this->_taskqueue, this->_bottom);
+     return this->_array[this->_bottom];
+   }
+ }
+
+*/
 
 gsoc_task gsoc_taskqueue_pop(gsoc_taskqueue *this)
 {
@@ -67,7 +71,7 @@ gsoc_task gsoc_taskqueue_pop(gsoc_taskqueue *this)
   size_t t = this->_top;
   gsoc_task ret;
 
-  if (t <= b)
+  if (t < b)
   {
     // There is at least one item
     ret = this->_array[b % NUM_TASKS];
@@ -94,6 +98,7 @@ gsoc_task gsoc_taskqueue_pop(gsoc_taskqueue *this)
     return ret;
   }
 }
+
 
 gsoc_task gsoc_taskqueue_take(gsoc_taskqueue *this)
 {
@@ -130,16 +135,13 @@ gsoc_taskqueue_set *gsoc_taskqueue_set_new()
 {
   gsoc_taskqueue_set *set = malloc(sizeof(gsoc_taskqueue_set));
   assert(set);
-  // for (int i = 0; i < PRIORITY_LEVELS; i++) {
-  //   set->queues[i] = gsoc_taskqueue_new();
-  // }
+  
   return set;
 }
 
 void gsoc_taskqueue_set_push(gsoc_taskqueue_set *set, gsoc_task task)
 {
   assert(task.priority >= 0);
-  // printf("in gsoc_taskqueue_set_push, priority = %d\n", task.priority);
   assert(task.priority < PRIORITY_LEVELS);
   gsoc_taskqueue_push(&set->queues[task.priority], task);
 }
