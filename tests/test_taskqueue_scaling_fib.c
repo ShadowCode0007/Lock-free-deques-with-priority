@@ -1,5 +1,3 @@
-#define TEST_USE_TASK_ID
-
 #define _GNU_SOURCE
 #include "../taskqueue.h"
 #include "../time.h"
@@ -10,11 +8,7 @@
 #include <utmpx.h>
 #include <unistd.h>
 
-#ifndef TESTVAL_EXTENDS /* It may be defined by Makefile */
-#define TESTVAL_EXTENDS 1
-#endif
-
-#define num_of_tasks 150
+#define num_of_tasks 288
 
 typedef struct _worker
 {
@@ -25,11 +19,20 @@ typedef struct _worker
   long num_workers;
 } worker;
 
+int nthFibonacci(int n){
+    // Base case: if n is 0 or 1, return n
+    if (n <= 1){
+        return n;
+    }
+    // Recursive case: sum of the two preceding Fibonacci numbers
+    return nthFibonacci(n - 1) + nthFibonacci(n - 2);
+}
+
 void execute_task(gsoc_task task)
 {
   // Simulate task execution
   printf("(CPU%d) Executing task %lld (priority %d)\n", sched_getcpu(), task.test_id, task.priority);
-  usleep(task.task_duration * 1000);
+  nthFibonacci(task.task_duration);
 }
 
 void *parallel_push_pop_take(void *s)
@@ -121,26 +124,28 @@ int main()
     workers[i].taskqs = gsoc_taskqueue_set_new();
   }
 
+  int tasks_per_processor = num_of_tasks / num_cpu;
+
   for (int i = 0; i < num_cpu; ++i)
   {
-    for (int j = 0; j < num_of_tasks; ++j)
+    for (int j = 0; j < tasks_per_processor; ++j)
     {
       int priority = (j + 1) % 3;
+ 
       gsoc_task task;
       task.priority = priority;
+     
+      if (priority == 0)
+         task.task_duration = 20 + (rand() % (40 - 20 + 1)); // random between 20 and 40 inclusive
+      else if (priority == 1)
+         task.task_duration = 10 + (rand() % (20 - 10 + 1)); // random between 10 and 20 inclusive
+      else if (priority == 2)
+          task.task_duration = 0 + (rand() % (10 - 0 + 1));
 
-      if (i == 0)
-      	task.task_duration = 50 + (rand() % (100));
-      if (i == 1)
-	task.task_duration = 10 + (rand() % (100));
-      if (i == 2)
-	 task.task_duration = 60 + (rand() % (100));
-      if (i >= 3)
-	  task.task_duration = 20 + (rand() % (100));
 
       task.test_id = workers[i].id + j + 1;
 
-      //printf("(CPU%d) Creating task %lld with priority %u\n", sched_getcpu(), task.test_id, task.priority);
+      printf("(CPU%d) Creating task %lld with priority %u\n", sched_getcpu(), task.test_id, task.priority);
       gsoc_taskqueue_set_push(workers[i].taskqs, task);
     }
   }

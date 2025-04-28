@@ -1,6 +1,3 @@
-#ifndef _GSOC_TASK_H_
-#define _GSOC_TASK_H_
-
 // Task priorities
 typedef enum
 {
@@ -15,5 +12,3 @@ typedef struct gsoc_task
   int task_duration;
   unsigned long long test_id;
 } gsoc_task;
-
-#endif /* _GSOC_TASK_H_ */

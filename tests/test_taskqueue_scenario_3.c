@@ -163,6 +163,18 @@ int main()
 
       if (i == 3 && j >= 130)
           priority = 2;
+
+      if (i >= 3) {
+          if (j <= 50) {
+	    priority = 0;
+	  }
+	  if (j > 50 && j <= 100) {
+	    priority = 1;
+	  }
+	  if (j > 100) {
+	    priority = 2;
+	  }
+      }
    
       gsoc_task task;
       task.priority = priority;
@@ -175,6 +187,9 @@ int main()
 	 task.task_duration = 60;
       if (i == 3)
 	  task.task_duration = 20;
+
+      if (i >= 3)
+	  task.task_duration = 10 + (rand() % (20 - 10 + 1));
 
       task.test_id = workers[i].id + j + 1;
 

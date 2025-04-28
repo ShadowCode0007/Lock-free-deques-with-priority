@@ -128,6 +128,7 @@ int main()
     if (i == 1) num_tasks = 75;
     if (i == 2) num_tasks = 100;
     if (i == 3) num_tasks = 150;
+    if (i > 3)  num_tasks = 200;
 
     for (int j = 0; j < num_tasks; ++j)
     {
@@ -169,6 +170,19 @@ int main()
 
       if (i == 3 && j >= 130)
           priority = 2;
+
+      if (i > 3) {
+         if (j <= 100) {
+	   priority = 0;
+	 }
+	 if (j > 100 && j <= 150) {
+	   priority = 1;
+	 }
+
+	 if (j > 150) {
+	   priority = 2;
+	 }
+      }
    
       gsoc_task task;
       task.priority = priority;
@@ -181,6 +195,8 @@ int main()
 	 task.task_duration = 60;
       if (i == 3)
 	  task.task_duration = 20;
+      if (i > 3)
+	  task.task_duration = 20 + (rand() % (40 - 20 + 1));
 
       task.test_id = workers[i].id + j + 1;
 

@@ -137,6 +137,8 @@ int main()
 	 task.task_duration = 60;
       if (i == 3)
 	  task.task_duration = 20;
+      else
+	  task.task_duration = 10 + (rand() % (90));
 
       task.test_id = workers[i].id + j + 1;
 
