@@ -1,71 +1,63 @@
-# Lockless Work stealing Deque written in C.
+# Lock-Free Priority-Aware Work Stealing
 
-- There are a number of tasks
-- `Tasks` are the same `number of task queues as CPUs`
-- A `worker` has a task queue
-- A worker `pushs`/`pops` tasks from its own task queue
-- A worker takes tasks from other workers
-- `Pop`/`push` accesses the `bottom of task queues`
-- Take accesses the `top of task queues`
+This project implements a **lock-free, priority-aware work-stealing scheduler** for parallel task execution on multicore systems. Each processor maintains independent lock-free deques for each priority level, enabling efficient, decentralized scheduling of tasks while minimizing priority inversion and synchronization overhead.
 
-# Features
+## Features
 
-- Task queue is implemented as `unbound circular array`
-    which doesn't have start and end points and expands when the size
-    is less than the number of tasks.
-    
-- There are already some implementation of Lock-free Work-stealing Deque.
-    But one written in C is not so common.
-    Unlike some languages like Java, the support of `volatile` variable is
-    limited in C. This implementation covers it by using memory barriers.
-    
-- This uses `compare-and-swap (CAS) instruction` instead of `mutex lock`.
+- **Lock-Free Deques:** Each processor maintains a set of lock-free double-ended queues (deques), one per priority level, implemented using atomic compare-and-swap (CAS) operations and explicit memory barriers (`__sync_synchronize()`).
+- **Priority-Aware Scheduling:** Tasks are classified into priority levels. Processors always prefer to execute or steal higher-priority tasks.
+- **Decentralized Stealing:** Idle processors attempt to steal tasks from the same priority level in other processors’ deques, reducing contention and balancing load.
 
-# Compile
+## How It Works
 
-Compile the deque source.
+1. **Task Queues:**  
+   Each processor/core maintains multiple lock-free deques, one for each priority level (e.g., high, medium, low).
+2. **Task Execution:**  
+   Processors work on the highest available priority, popping tasks from their local deque.
+3. **Work Stealing:**  
+   If a processor’s deque is empty at the current priority, it attempts to steal tasks from other processors at the same priority.
+4. **Priority Progression:**  
+   Only after failing to find work at a given priority (locally and via stealing) does a processor move to the next lower priority.
+5. **Atomicity and Memory Ordering:**  
+   All concurrent operations use atomic CAS and explicit memory barriers (`__sync_synchronize()`) to ensure correctness and visibility across cores.
 
-```bash
-make
+## Directory Structure
+
+```
+├── taskqueue.c
+├── taskqueue.h
+├── time.h
+├── Makefile
+├── tests/
+│   ├── test_fib1.c
+│   └── ...
+├── build/ # Created automatically
+│   ├── test_fib1
+│   └── ...
+└── logs/ # Created automatically
+    ├── test_taskqueue.log
+    ├── test_taskqueue.debug.log
 ```
 
-# Test
+## How to run
 
-To test the unit test of deque, just type
+The project uses a Makefile to automate building and testing:
 
-```bash
-make TEST_gsoc_taskqueue
-```
+- `make all`  
+  Compiles and runs all test files in the `tests/` directory. The output of each test is saved to a corresponding log file in the `logs/` directory.
 
-You can see the number of CPUs used in test and calculation time by
+- `make clean`  
+  Removes all build artifacts and logs (i.e., cleans the `build/` and `logs/` directories).
 
-```bash
-./test_gsoc_taskqueue > /dev/null
-```
+**Tip:**  
+You can always inspect the logs in the `logs/` directory for detailed output or debugging information from your test runs.
 
-If you also want to test circular array, type
+## References
 
-```bash
-make TEST_gsoc_task_circular_array    
-```
-   
-Note that it will fail if you use 32-bit CPUs.
-Or if you want to test all of them,
+- Shams Imam, Vivek Sarkar. ["Load Balancing Prioritized Tasks via Work-Stealing." *Euro-Par 2015*](https://link.springer.com/chapter/10.1007/978-3-662-48096-0_38)
+- Aleksandar Prokopec et al. ["Efficient lock-free work-stealing iterators for data-parallel collections." *PDP 2015*](https://infoscience.epfl.ch/bitstreams/19aec310-0e30-41e0-928b-40bc6e1aa243/download)
 
-```bash
-make test
-```
+## Acknowledgments
 
-you can clean the directory.
+This project was developed as part of coursework at Carnegie Mellon University. Special thanks to Prof. Todd C. Mowry and Prof. Brian P. Railing for their guidance and support.
 
-```bash
-make clean
-```
-
-# Reference
-
-1. [The Art of Multiprocessor Programming.  Maurice Herlihy, Nir Shavit / Morgan Kaufmann](https://www.elsevier.com/books/the-art-of-multiprocessor-programming/herlihy/978-0-12-415950-1)
-2. [Dynamic Circular Work-Stealing Deque. David Chase, Yossi Lev / Sun Microsystems](https://dl.acm.org/doi/10.1145/1073970.1073974)
-3. [laysakura's blog](http://d.hatena.ne.jp/laysakura)
-4. [laysakura's project in Google Summer of Code 2011](http://www.google-melange.com/gsoc/proposal/review/google/gsoc2011/laysakura/1)
-5. [laysakura's twitter](http://twitter.com/laysakura)
