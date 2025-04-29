@@ -44,13 +44,13 @@ This project implements a **lock-free, priority-aware work-stealing scheduler** 
 The project uses a Makefile to automate building and testing:
 
 - `make all`  
-  Compiles and runs all test files in the `tests/` directory. The output of each test is saved to a corresponding log file in the `logs/` directory.
+  Compiles and runs all test files in the `tests/` directory. The output of each test is saved to a corresponding log file in the `results/` directory.
 
 - `make clean`  
-  Removes all build artifacts and logs (i.e., cleans the `build/` and `logs/` directories).
+  Removes all build artifacts and logs (i.e., cleans the `build/` and `results/` directories).
 
 **Tip:**  
-You can always inspect the logs in the `logs/` directory for detailed output or debugging information from your test runs.
+You can inspect the logs in the `results/` directory for detailed statistics (`*_stats.log`) and output (`*_operations.log`) from your test runs.
 
 ## References
 
