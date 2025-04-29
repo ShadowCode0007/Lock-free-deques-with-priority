@@ -9,7 +9,7 @@ LDFLAGS = -lpthread -lrt -lm
 SRC_DIR = .
 TEST_DIR = ./tests
 BUILD_DIR = ./build
-LOG_DIR = ./logs
+LOG_DIR = ./results
 
 # Source files
 SRC_FILES = $(SRC_DIR)/taskqueue.c
@@ -38,7 +38,7 @@ run_tests: $(TEST_EXECS)
 	@for test in $(TEST_EXECS); do \
 		echo "Running $${test}..."; \
 		base_name=$$(basename $$test); \
-		$$test > $(LOG_DIR)/$${base_name}.log 2> $(LOG_DIR)/$${base_name}.debug.log; \
+		$$test > $(LOG_DIR)/$${base_name}_operations.log 2> $(LOG_DIR)/$${base_name}_stats.log; \
 		if [ $$? -eq 0 ]; then \
 			echo "$${base_name}: SUCCESS"; \
 		else \

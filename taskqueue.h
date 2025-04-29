@@ -6,35 +6,35 @@
 #include <stdio.h>
 #include <string.h>
 #include <sched.h>
-// Priorities: 0 = high, 1 = medium, 2 = low
+
 #define PRIORITY_LEVELS 3
+#define TASKQUEUE_SIZE 3000
 
 typedef struct taskqueue
 {
-  task _array[3000];
-  unsigned long long _size;
-  volatile size_t _top;    // where stealing starts from
-  volatile size_t _bottom; // where pushing occurs
+  task _array[TASKQUEUE_SIZE];
+  volatile size_t _top;    // stealing occurs
+  volatile size_t _bottom; // pushing/popping occurs
 } taskqueue;
 
 // A triple-priority deque per processor
 typedef struct taskqueue_set
 {
-  taskqueue queues[PRIORITY_LEVELS]; // 0: high, 1: medium, 2: low
+  taskqueue queues[PRIORITY_LEVELS];
 } taskqueue_set;
 
 // Task operations on a single queue
-void taskqueue_push(taskqueue *this, task task);
-task taskqueue_pop(taskqueue *this);
-task taskqueue_take(taskqueue *this);
+void push(taskqueue *this, task task);
+task pop(taskqueue *this);
+task take(taskqueue *this);
 
 // Constructor/destructor for the 3-deque structure
-taskqueue_set *taskqueue_set_new();
-void taskqueue_set_delete(taskqueue_set *set);
+taskqueue_set *set_new();
+void set_delete(taskqueue_set *set);
 
 // Push/pop by priority
-void taskqueue_set_push(taskqueue_set *set, task task);
-task taskqueue_set_pop(taskqueue_set *set, int priority);
+void set_push(taskqueue_set *set, task task);
+task set_pop(taskqueue_set *set, int priority);
 
 // Stealing strategy to pick best task among priorities
-task taskqueue_set_steal_best(taskqueue_set *victim_set, int priority_level, int cpu);
+task set_steal_best(taskqueue_set *victim_set, int priority_level, int cpu);

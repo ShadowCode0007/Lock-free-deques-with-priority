@@ -29,14 +29,14 @@ This project implements a **lock-free, priority-aware work-stealing scheduler** 
 ├── time.h
 ├── Makefile
 ├── tests/
-│   ├── test_fib1.c
+│   ├── test_fib.c
 │   └── ...
 ├── build/ # Created automatically
-│   ├── test_fib1
+│   ├── test_fib
 │   └── ...
-└── logs/ # Created automatically
-    ├── test_taskqueue.log
-    ├── test_taskqueue.debug.log
+└── results/ # Created automatically
+    ├── test_fib_stats.log
+    ├── test_fib_operations.log
 ```
 
 ## How to run
